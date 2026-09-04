@@ -1,8 +1,6 @@
 # MAMS: A Multimodal Attendance Management System
 
-A multimodal attendance monitoring system for higher-education institutions,
-combining facial recognition, Bluetooth Low Energy (BLE) proximity geofencing,
-and classical machine learning for anomaly detection.
+A multimodal attendance monitoring system for higher-education institutions.
 
 ---
 
