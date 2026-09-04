@@ -25,7 +25,7 @@ from utils.errors import (
 
 load_dotenv()
 
-app = FastAPI(title="TRACE ML Service")
+app = FastAPI(title="MAMS ML Service")
 
 # CORS configuration
 app.add_middleware(

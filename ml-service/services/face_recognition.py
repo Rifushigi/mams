@@ -7,6 +7,10 @@ from typing import Dict, Any
 import json
 from datetime import datetime
 
+from utils import crypto
+
+ENCODINGS_PATH = "data/face_encodings.json"
+
 
 class FaceRecognitionService:
     def __init__(self):
@@ -14,28 +18,52 @@ class FaceRecognitionService:
         self.face_locations = {}
         self.known_face_encodings = []
         self.known_face_ids = []
+        self._needs_migration = False
         self.load_known_faces()
 
     def load_known_faces(self):
-        """Load known face encodings from storage"""
-        try:
-            if os.path.exists("data/face_encodings.json"):
-                with open("data/face_encodings.json", "r") as f:
-                    data = json.load(f)
-                    self.face_encodings = data.get("encodings", {})
-                    self.known_face_encodings = list(self.face_encodings.values())
-                    self.known_face_ids = list(self.face_encodings.keys())
-        except Exception as e:
-            print(f"Error loading face encodings: {e}")
+        """
+        Load known face encodings from the encrypted store.
+
+        """
+        if not os.path.exists(ENCODINGS_PATH):
+            return
+
+        with open(ENCODINGS_PATH, "r") as f:
+            payload = json.load(f)
+
+        if crypto.is_encrypted(payload):
+            document = crypto.decrypt(payload)
+        else:
+            document = payload
+            self._needs_migration = True
+            print(
+                f"{ENCODINGS_PATH} is stored in plaintext. It will be encrypted on "
+                f"the next write."
+            )
+
+        self.face_encodings = document.get("encodings", {})
+        self.known_face_encodings = [
+            np.array(encoding) for encoding in self.face_encodings.values()
+        ]
+        self.known_face_ids = list(self.face_encodings.keys())
 
     def save_known_faces(self):
-        """Save known face encodings to storage"""
-        try:
-            os.makedirs("data", exist_ok=True)
-            with open("data/face_encodings.json", "w") as f:
-                json.dump({"encodings": self.face_encodings}, f)
-        except Exception as e:
-            print(f"Error saving face encodings: {e}")
+        """
+        Persist face encodings, encrypted with AES-256-GCM.
+
+        """
+        os.makedirs(os.path.dirname(ENCODINGS_PATH), exist_ok=True)
+        envelope = crypto.encrypt({"encodings": self.face_encodings})
+
+        temporary_path = f"{ENCODINGS_PATH}.tmp"
+        with open(temporary_path, "w") as f:
+            json.dump(envelope, f)
+        os.replace(temporary_path, ENCODINGS_PATH)
+
+        if getattr(self, "_needs_migration", False):
+            print(f"{ENCODINGS_PATH} has been migrated to encrypted storage.")
+            self._needs_migration = False
 
     def decode_base64_image(self, base64_string: str) -> np.ndarray:
         """Decode base64 image to numpy array"""

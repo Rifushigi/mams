@@ -18,33 +18,14 @@ load_dotenv()
 
 FACE_ENCODINGS_PATH = "data/face_encodings.json"
 
-
-def load_face_encodings():
-    if os.path.exists(FACE_ENCODINGS_PATH):
-        with open(FACE_ENCODINGS_PATH, "r") as f:
-            data = json.load(f)
-            encodings = data.get("encodings", {})
-            known_face_encodings = [np.array(v) for v in encodings.values()]
-            known_face_ids = list(encodings.keys())
-            return encodings, known_face_encodings, known_face_ids
-    return {}, [], []
+face_service = FaceRecognitionService()
+print("Loaded users:", face_service.known_face_ids)
 
 
 def save_face_encodings(encodings):
-    os.makedirs("data", exist_ok=True)
-    with open(FACE_ENCODINGS_PATH, "w") as f:
-        json.dump({"encodings": encodings}, f)
-
-
-# Initialize face recognition service
-face_service = FaceRecognitionService()
-# Load persistent encodings
-(
-    face_service.face_encodings,
-    face_service.known_face_encodings,
-    face_service.known_face_ids,
-) = load_face_encodings()
-print("Loaded users:", face_service.known_face_ids)
+    """Persist the harness's working set through the service's encrypted store."""
+    face_service.face_encodings = encodings
+    face_service.save_known_faces()
 
 # Test configuration
 STREAM_ID = "test_stream"
@@ -83,11 +64,11 @@ async def process_frame(frame):
             else:
                 # Use a dummy user_id (will be ignored in is_match logic)
                 result = await face_service.verify_face(face_base64, "dummy")
-        if result["match"]:
+                if result["match"]:
                     text = f"Match: {result['face_id']} ({result['confidence']:.2f})"
                     color = (0, 255, 0)
-        else:
-            text = "No Match"
+                else:
+                    text = "No Match"
                     color = (0, 0, 255)
         except Exception as e:
             print(f"Verification error: {e}")
@@ -491,4 +472,4 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "clear_db":
         clear_face_encodings()
     else:
-    asyncio.run(main())
+        asyncio.run(main())
